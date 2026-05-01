@@ -117,7 +117,7 @@ describe("SitesResource.deploy", () => {
 
     expect(http.post).toHaveBeenCalledWith(
       "/v1/sites/site1/uploads",
-      { files: [{ fileName: "file0.html", parts: 1 }] },
+      { files: [{ fileName: "file0.html", fileSize: 11, parts: 1 }] },
     );
   });
 
@@ -151,7 +151,7 @@ describe("SitesResource.deploy", () => {
 
     expect(http.post).toHaveBeenCalledWith(
       "/v1/sites/s1/uploads",
-      { files: [{ fileName: "big.bin", parts: 3 }] },
+      { files: [{ fileName: "big.bin", fileSize: 5 * 1024 * 1024 * 2 + 100, parts: 3 }] },
     );
   });
 
