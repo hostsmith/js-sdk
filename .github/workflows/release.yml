@@ -1,0 +1,58 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.semver.outputs.tag }}
+      released: ${{ steps.semver.outputs.released }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Semver Release
+        id: semver
+        uses: huggingface/semver-release-action@1a164868d29fb12acd39d70e8e47326db9d78ad2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build:
+    needs: [release]
+    if: needs.release.outputs.released == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: npm ci
+
+      - name: Set version from release tag
+        run: npm version "${{ needs.release.outputs.tag }}" --no-git-tag-version
+
+      - run: npm run typecheck
+
+      - run: npm run build
+
+      - name: Pack tarball
+        run: npm pack
+
+      - name: Upload tarball to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TARBALL=$(ls *.tgz)
+          TAG="${{ needs.release.outputs.tag }}"
+          NOTES=$(printf 'Install with:\n```\nnpm install https://github.com/%s/releases/download/%s/%s\n```' "${{ github.repository }}" "$TAG" "$TARBALL")
+          gh release edit "$TAG" --notes "$NOTES"
+          gh release upload "$TAG" "$TARBALL"

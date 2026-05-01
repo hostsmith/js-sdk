@@ -1,0 +1,200 @@
+# @hostsmith/sdk
+
+Node.js SDK for the [Hostsmith](https://hostsmith.net) Public API. Manage sites and deploy files programmatically.
+
+## Installation
+
+```bash
+npm install @hostsmith/sdk
+```
+
+Requires Node.js 18 or later.
+
+## Quick Start
+
+```ts
+import { Hostsmith } from "@hostsmith/sdk";
+
+const client = new Hostsmith({
+  accessToken: "your-oauth-access-token",
+  partition: "us", // "us" (United States) or "eu" (European Union)
+});
+
+// List all sites
+const { sites } = await client.sites.list();
+
+// Deploy a directory
+await client.sites.deploy(sites[0].id, "./dist");
+```
+
+## Authentication
+
+The SDK requires an OAuth 2.0 access token. See the [authentication guide](https://hostsmith.net/docs/developers/authentication) for how to obtain one.
+
+```ts
+const client = new Hostsmith({
+  accessToken: "your-access-token",
+});
+```
+
+## Usage
+
+### Sites
+
+```ts
+// List all sites
+const { sites } = await client.sites.list();
+
+// Get a site by ID
+const site = await client.sites.get("site-id");
+
+// Create a site
+const { siteId } = await client.sites.create({
+  subdomain: "my-portfolio",
+  domain: "us.hostsmith.link",
+});
+
+// Delete a site
+await client.sites.delete("site-id");
+```
+
+### Domains
+
+```ts
+// List all domains (shared + custom)
+const { domains } = await client.domains.list();
+
+// List only shared hosting domains
+const { domains: shared } = await client.domains.list({ shared: true });
+
+// List only custom domains owned by your organization
+const { domains: custom } = await client.domains.list({ shared: false });
+
+// Each domain includes:
+// - id, name, shared, partition, enableApexDomain, enableSubdomains, status
+// - canonicalServedUrl: the URL where the site is actually served
+//   (https://www.<apex> for apex-enabled domains, otherwise https://<name>)
+// - bareApexCovered: whether the bare apex form (https://example.com) is reachable
+```
+
+### Deploying Files
+
+Deploy an entire directory:
+
+```ts
+const result = await client.sites.deploy("site-id", "./dist");
+// { versionId: "...", status: "processing" }
+```
+
+Or deploy specific files:
+
+```ts
+import { Buffer } from "node:buffer";
+
+const result = await client.sites.deploy("site-id", [
+  { fileName: "index.html", content: Buffer.from("<h1>Hello</h1>") },
+  { fileName: "style.css", content: Buffer.from("body { margin: 0 }") },
+]);
+```
+
+The deploy method handles the full upload flow: requesting presigned URLs, uploading file parts to S3 (with concurrency), and finalizing the deployment.
+
+Files larger than 5 MB are automatically split into multipart uploads.
+
+## Configuration
+
+### Partitions
+
+Each Hostsmith data partition has its own API host. Pass `partition` to pick one:
+
+| Partition | Label          | Base URL                       |
+| --------- | -------------- | ------------------------------ |
+| `us`      | United States  | `https://us.api.hostsmith.net` |
+| `eu`      | European Union | `https://eu.api.hostsmith.net` |
+
+A discovery endpoint (`GET /v1/partitions`) returns the live list with labels.
+
+### Default partition from token
+
+If `partition` is omitted and the access token's `aud` claim is a single string identifying a known partition, the SDK uses it as the default. Multi-partition tokens (`aud` is an array) require an explicit `partition`.
+
+```ts
+// One token authorized for both partitions: pick which one to call.
+const us = new Hostsmith({ accessToken: token, partition: "us" });
+const eu = new Hostsmith({ accessToken: token, partition: "eu" });
+```
+
+### Custom partition URLs (dev / staging)
+
+Override the default URL map (e.g. to point at `hostsmith-dev.com`):
+
+```ts
+const client = new Hostsmith({
+  accessToken: "your-token",
+  partition: "us",
+  partitionUrls: {
+    us: "https://us.api.hostsmith-dev.com",
+    eu: "https://eu.api.hostsmith-dev.com",
+  },
+});
+```
+
+Token-based defaulting also uses the overridden URLs.
+
+### Custom Base URL
+
+For local development:
+
+```ts
+const client = new Hostsmith({
+  accessToken: "your-token",
+  baseUrl: "http://localhost:3000",
+});
+```
+
+## Error Handling
+
+The SDK throws typed errors for API failures:
+
+```ts
+import { ApiError, AuthError } from "@hostsmith/sdk";
+
+try {
+  await client.sites.get("nonexistent-id");
+} catch (err) {
+  if (err instanceof AuthError) {
+    // 401 - token expired or invalid
+    console.error("Auth failed:", err.message);
+  } else if (err instanceof ApiError) {
+    // Other API errors (403, 404, 409, 429)
+    console.error(`API error ${err.status}:`, err.errorCode, err.message);
+  }
+}
+```
+
+### Error Classes
+
+- `HostsmithError` - base class for all SDK errors
+- `ApiError` - API returned an error response (has `status`, `errorCode`, `message`)
+- `AuthError` - 401 Unauthorized (extends `ApiError`)
+
+## Contributing
+
+This project uses [Conventional Commits](https://www.conventionalcommits.org/). A git hook enforces the format.
+
+Enable the hook after cloning:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+| Commit Type                                                | Example                             |
+| ---------------------------------------------------------- | ----------------------------------- |
+| `feat:` - new feature                                      | `feat: add domain listing`          |
+| `fix:` - bug fix                                           | `fix: handle expired token refresh` |
+| `feat!:` or `BREAKING CHANGE:` - breaking change           | `feat!: remove v1 upload endpoint`  |
+| `docs:`, `style:`, `refactor:`, `perf:`, `test:`, `chore:` | `docs: update authentication guide` |
+
+## License
+
+MIT
