@@ -14,7 +14,7 @@ Node.js SDK for the [Hostsmith](https://hostsmith.net) Public API. Manage sites 
 npm install @hostsmith/sdk
 ```
 
-Requires Node.js 18 or later.
+Requires Node.js 20 or later.
 
 ## Quick Start
 
