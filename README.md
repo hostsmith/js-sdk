@@ -1,5 +1,11 @@
 # @hostsmith/sdk
 
+[![CI](https://github.com/hostsmith/js-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/hostsmith/js-sdk/actions/workflows/ci.yml)
+[![Latest Release](https://img.shields.io/github/v/release/hostsmith/js-sdk)](https://github.com/hostsmith/js-sdk/releases/latest)
+[![npm version](https://img.shields.io/npm/v/@hostsmith/sdk)](https://www.npmjs.com/package/@hostsmith/sdk)
+[![Node Version](https://img.shields.io/node/v/@hostsmith/sdk)](./package.json)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+
 Node.js SDK for the [Hostsmith](https://hostsmith.net) Public API. Manage sites and deploy files programmatically.
 
 ## Installation
@@ -180,20 +186,7 @@ try {
 
 ## Contributing
 
-This project uses [Conventional Commits](https://www.conventionalcommits.org/). A git hook enforces the format.
-
-Enable the hook after cloning:
-
-```bash
-git config core.hooksPath .githooks
-```
-
-| Commit Type                                                | Example                             |
-| ---------------------------------------------------------- | ----------------------------------- |
-| `feat:` - new feature                                      | `feat: add domain listing`          |
-| `fix:` - bug fix                                           | `fix: handle expired token refresh` |
-| `feat!:` or `BREAKING CHANGE:` - breaking change           | `feat!: remove v1 upload endpoint`  |
-| `docs:`, `style:`, `refactor:`, `perf:`, `test:`, `chore:` | `docs: update authentication guide` |
+See [CONTRIBUTING.md](./CONTRIBUTING.md). For security issues, see [SECURITY.md](./SECURITY.md).
 
 ## License
 

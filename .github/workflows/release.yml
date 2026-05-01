@@ -53,6 +53,35 @@ jobs:
         run: |
           TARBALL=$(ls *.tgz)
           TAG="${{ needs.release.outputs.tag }}"
-          NOTES=$(printf 'Install with:\n```\nnpm install https://github.com/%s/releases/download/%s/%s\n```' "${{ github.repository }}" "$TAG" "$TARBALL")
+          NOTES=$(printf 'Install with:\n```\nnpm install @hostsmith/sdk@%s\n```\n\nOr from the GitHub Release tarball:\n```\nnpm install https://github.com/%s/releases/download/%s/%s\n```' "${TAG#v}" "${{ github.repository }}" "$TAG" "$TARBALL")
           gh release edit "$TAG" --notes "$NOTES"
           gh release upload "$TAG" "$TARBALL"
+
+  # Publishes @hostsmith/sdk to npm using GitHub OIDC (npm Trusted Publisher).
+  # No NPM_TOKEN secret is used - authentication is via the id-token below
+  # plus the Trusted Publisher configuration on npmjs.com for this package.
+  publish-npm:
+    needs: [release, build]
+    if: needs.release.outputs.released == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - run: npm ci
+
+      - name: Set version from release tag
+        run: npm version "${{ needs.release.outputs.tag }}" --no-git-tag-version
+
+      - run: npm run typecheck
+
+      - run: npm run build
+
+      - run: npm publish --provenance --access public

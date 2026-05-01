@@ -4,6 +4,14 @@
   "description": "Node.js SDK for the Hostsmith Public API",
   "license": "MIT",
   "type": "module",
+  "homepage": "https://github.com/hostsmith/js-sdk#readme",
+  "bugs": {
+    "url": "https://github.com/hostsmith/js-sdk/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "exports": {
     ".": {
       "import": {
