@@ -3,6 +3,7 @@ name: Release
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   workflow_dispatch: {}
 
 permissions:
@@ -19,6 +20,12 @@ jobs:
   # from conventional commits, updates package.json + CHANGELOG.md,
   # commits "chore(version): X.Y.Z", and tags vX.Y.Z.
   release:
+    # Skip when the triggering push is the bot's own version-bump commit
+    # to avoid re-running the workflow on the bump (which would either
+    # no-op or, on tag pushes, double-publish).
+    if: >-
+      github.event_name != 'push' ||
+      !startsWith(github.event.head_commit.message, 'chore(version):')
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
@@ -30,6 +37,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Compute bump args
+        if: github.ref_type != 'tag'
         id: args
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
@@ -44,10 +52,12 @@ jobs:
           fi
 
       - name: Capture pre-bump tag
+        if: github.ref_type != 'tag'
         id: before
         run: echo "tag=$(git describe --tags --abbrev=0 2>/dev/null || echo '')" >> "$GITHUB_OUTPUT"
 
       - name: Bump
+        if: github.ref_type != 'tag'
         id: bump
         uses: cocogitto/cocogitto-action@9a9fe03b31c47444290c0d7f9b1ee1b44ee13f20 # v4.1.0
         continue-on-error: true
@@ -60,21 +70,32 @@ jobs:
       - name: Resolve tag + released flag
         id: tag
         run: |
-          AFTER=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-          if [[ -z "$AFTER" || "$AFTER" == "${{ steps.before.outputs.tag }}" ]]; then
-            echo "released=false" >> "$GITHUB_OUTPUT"
-            echo "No releasable commits since '${{ steps.before.outputs.tag }}'"
-          else
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
             echo "released=true" >> "$GITHUB_OUTPUT"
-            echo "tag=$AFTER" >> "$GITHUB_OUTPUT"
+            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          else
+            AFTER=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+            if [[ -z "$AFTER" || "$AFTER" == "${{ steps.before.outputs.tag }}" ]]; then
+              echo "released=false" >> "$GITHUB_OUTPUT"
+              echo "No releasable commits since '${{ steps.before.outputs.tag }}'"
+            else
+              echo "released=true" >> "$GITHUB_OUTPUT"
+              echo "tag=$AFTER" >> "$GITHUB_OUTPUT"
+            fi
           fi
 
-      - name: Push commit + tag
-        if: steps.tag.outputs.released == 'true'
-        run: |
-          git push origin "HEAD:${{ github.ref_name }}"
-          git push origin "${{ steps.tag.outputs.tag }}"
+      - name: Push tag
+        if: github.ref_type != 'tag' && steps.tag.outputs.released == 'true'
+        # Push only the tag - cog doesn't create a bump commit
+        # (disable_bump_commit), so the tag points at the existing
+        # branch HEAD. No writes to the branch, branch protection
+        # untouched, history clean.
+        run: git push origin "${{ steps.tag.outputs.tag }}"
 
+  # Build + publish run in-band in the same workflow run that pushed the
+  # tag (whether dispatched, push-to-main, or triggered by a manual tag
+  # push). Pushes from GITHUB_TOKEN don't retrigger workflows, so no
+  # double-fire from our own tag pushes.
   build:
     needs: [release]
     if: needs.release.outputs.released == 'true'
@@ -90,6 +111,11 @@ jobs:
           node-version: 22
 
       - run: npm ci
+
+      - name: Stamp version from tag
+        env:
+          TAG: ${{ needs.release.outputs.tag }}
+        run: npm version "${TAG#v}" --no-git-tag-version --allow-same-version
 
       - run: npm run typecheck
 
@@ -146,6 +172,11 @@ jobs:
           registry-url: https://registry.npmjs.org/
 
       - run: npm ci
+
+      - name: Stamp version from tag
+        env:
+          TAG: ${{ needs.release.outputs.tag }}
+        run: npm version "${TAG#v}" --no-git-tag-version --allow-same-version
 
       - run: npm run typecheck
 
