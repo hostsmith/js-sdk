@@ -1,6 +1,6 @@
 {
   "name": "@hostsmith/sdk",
-  "version": "1.0.1-rc.17",
+  "version": "1.0.1",
   "description": "Node.js SDK for the Hostsmith Public API",
   "license": "MIT",
   "type": "module",

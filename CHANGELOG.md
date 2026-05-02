@@ -2,6 +2,18 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## v1.0.1 - 2026-05-02
+
+- - -
+
+## v1.0.1-rc.17 - 2026-05-02
+#### Bug Fixes
+- cut release - (523d330) - gp42-ops (GitHub)
+#### Miscellaneous Chores
+- (**version**) v1.0.1-rc.17 - (de0d920) - github-actions[bot]
+
+- - -
+
 ## v1.0.1-rc.17 - 2026-05-02
 #### Bug Fixes
 - cut release - (523d330) - gp42-ops (GitHub)
