@@ -1,13 +1,14 @@
 tag_prefix = "v"
 ignore_merge_commits = true
 
-# Keep package.json version in sync with the bumped tag.
-pre_bump_hooks = [
-  "npm version --no-git-tag-version --allow-same-version {{version}}",
-]
+# We use cog only to decide the next version and create the tag.
+# No bump commit on the branch, no CHANGELOG.md committed to the repo.
+# package.json stays at 0.0.0 in source - CI stamps the real version
+# from the tag before npm pack/publish.
+disable_bump_commit = true
+disable_changelog = true
 
 [changelog]
-path = "CHANGELOG.md"
 remote = "github.com"
 owner = "hostsmith"
 repository = "js-sdk"
