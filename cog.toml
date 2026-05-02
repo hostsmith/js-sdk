@@ -1,4 +1,5 @@
 tag_prefix = "v"
+ignore_merge_commits = true
 
 # Keep package.json version in sync with the bumped tag.
 pre_bump_hooks = [
