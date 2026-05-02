@@ -1,0 +1,12 @@
+tag_prefix = "v"
+
+# Keep package.json version in sync with the bumped tag.
+pre_bump_hooks = [
+  "npm version --no-git-tag-version --allow-same-version {{version}}",
+]
+
+[changelog]
+path = "CHANGELOG.md"
+remote = "github.com"
+owner = "hostsmith"
+repository = "js-sdk"
