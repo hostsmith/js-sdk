@@ -122,10 +122,13 @@ A discovery endpoint (`GET /v1/partitions`) returns the live list with labels.
 
 ### Default partition from token
 
-If `partition` is omitted and the access token's `aud` claim is a single string identifying a known partition, the SDK uses it as the default. Multi-partition tokens (`aud` is an array) require an explicit `partition`.
+If `partition` is omitted, the SDK reads the access token's `homePartition` claim and uses it as the default. To call a partition other than the user's home partition, pass `partition` explicitly.
 
 ```ts
-// One token authorized for both partitions: pick which one to call.
+// Default to the user's home partition (from the token's `homePartition` claim).
+const home = new Hostsmith({ accessToken: token });
+
+// One token authorized for both partitions: target a specific one.
 const us = new Hostsmith({ accessToken: token, partition: "us" });
 const eu = new Hostsmith({ accessToken: token, partition: "eu" });
 ```

@@ -23,16 +23,13 @@ function decodeJwtPayload(token: string): Record<string, unknown> | undefined {
   }
 }
 
-function partitionFromAud(
-  token: string,
-  partitionUrls: Record<Partition, string>,
-): Partition | undefined {
+function partitionFromToken(token: string): Partition | undefined {
   const payload = decodeJwtPayload(token);
   if (!payload) return undefined;
-  const aud = payload.aud;
-  if (typeof aud !== "string") return undefined;
+  const home = payload.homePartition;
+  if (typeof home !== "string") return undefined;
   for (const p of KNOWN_PARTITIONS) {
-    if (aud === partitionUrls[p]) return p;
+    if (home === p) return p;
   }
   return undefined;
 }
@@ -60,11 +57,11 @@ export class Hostsmith {
       }
       baseUrl = url;
     } else {
-      const inferred = partitionFromAud(options.accessToken, partitionUrls);
+      const inferred = partitionFromToken(options.accessToken);
       if (!inferred) {
         throw new Error(
           "Hostsmith client requires `partition` (\"us\" | \"eu\") or `baseUrl`. " +
-            "The supplied access token does not have a single-partition `aud` claim, " +
+            "The supplied access token does not carry a `homePartition` claim, " +
             "so the partition cannot be inferred automatically.",
         );
       }
