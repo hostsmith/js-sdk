@@ -137,11 +137,15 @@ export interface AccountUsage {
   storage: number;
 }
 
+export interface AccountUser {
+  /** Data partition (residency) the calling user is anchored to. */
+  homePartition: Partition | null;
+}
+
 export interface Account {
   orgId: string;
-  name: string;
-  /** Data partition (residency) the account is anchored to. */
-  partition: Partition | null;
+  orgName: string;
+  user: AccountUser;
   plan: AccountPlan;
   usage: AccountUsage;
 }
