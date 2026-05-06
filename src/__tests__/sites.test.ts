@@ -308,4 +308,93 @@ describe("SitesResource.deploy", () => {
       expect(fileNames).toEqual(["index.html", "sub/style.css"]);
     });
   });
+
+  describe("startUpload / finalizeUpload (public primitives)", () => {
+    it("startUpload posts manifest to /v1/sites/<id>/uploads", async () => {
+      const http = createMockHttp();
+      const envelope = {
+        versionId: "v1",
+        files: {
+          "a.bin": {
+            uploadId: "u1",
+            key: "k1",
+            partUploadUrls: [{ part: 1, url: "https://s3.example.com/a/1" }],
+          },
+        },
+      };
+      http.post.mockResolvedValue(envelope);
+      const sites = new SitesResource(http);
+
+      const result = await sites.startUpload("s1", [
+        { fileName: "a.bin", fileSize: 100, parts: 1 },
+      ]);
+
+      expect(http.post).toHaveBeenCalledWith(
+        "/v1/sites/s1/uploads",
+        { files: [{ fileName: "a.bin", fileSize: 100, parts: 1 }] },
+      );
+      expect(result).toBe(envelope);
+    });
+
+    it("startUpload URL-encodes siteId", async () => {
+      const http = createMockHttp();
+      http.post.mockResolvedValue({ versionId: "v1", files: {} });
+      const sites = new SitesResource(http);
+      await sites.startUpload("a/b", [{ fileName: "x", fileSize: 1, parts: 1 }]);
+      expect(http.post).toHaveBeenCalledWith(
+        "/v1/sites/a%2Fb/uploads",
+        expect.anything(),
+      );
+    });
+
+    it("finalizeUpload posts completions to /v1/sites/<id>/uploads/<v>/finalize", async () => {
+      const http = createMockHttp();
+      http.post.mockResolvedValue({ status: "processing" });
+      const sites = new SitesResource(http);
+
+      const completions = [
+        {
+          uploadId: "u1",
+          key: "k1",
+          parts: [{ ETag: '"e1"', PartNumber: 1 }],
+        },
+      ];
+      const result = await sites.finalizeUpload("s1", "v1", completions);
+
+      expect(http.post).toHaveBeenCalledWith(
+        "/v1/sites/s1/uploads/v1/finalize",
+        { completions },
+      );
+      expect(result).toEqual({ status: "processing" });
+    });
+
+    it("finalizeUpload sends undefined body when completions empty/omitted", async () => {
+      const http = createMockHttp();
+      http.post.mockResolvedValue({ status: "processing" });
+      const sites = new SitesResource(http);
+      await sites.finalizeUpload("s1", "v1");
+      expect(http.post).toHaveBeenCalledWith(
+        "/v1/sites/s1/uploads/v1/finalize",
+        undefined,
+      );
+
+      http.post.mockClear();
+      await sites.finalizeUpload("s1", "v1", []);
+      expect(http.post).toHaveBeenCalledWith(
+        "/v1/sites/s1/uploads/v1/finalize",
+        undefined,
+      );
+    });
+
+    it("finalizeUpload URL-encodes siteId and versionId", async () => {
+      const http = createMockHttp();
+      http.post.mockResolvedValue({ status: "processing" });
+      const sites = new SitesResource(http);
+      await sites.finalizeUpload("a/b", "v 1");
+      expect(http.post).toHaveBeenCalledWith(
+        "/v1/sites/a%2Fb/uploads/v%201/finalize",
+        undefined,
+      );
+    });
+  });
 });
