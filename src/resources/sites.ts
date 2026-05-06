@@ -40,6 +40,42 @@ export class SitesResource {
     );
   }
 
+  /**
+   * Request presigned S3 PUT URLs for uploading file parts directly.
+   * Lower-level primitive used by `deploy()`; also exposed for callers
+   * that need to drive the PUT step themselves (e.g. an MCP server
+   * handing the URLs to an agent).
+   */
+  async startUpload(
+    siteId: string,
+    files: UploadFileEntry[],
+  ): Promise<StartUploadResponse> {
+    return this.http.post<StartUploadResponse>(
+      `/v1/sites/${encodeURIComponent(siteId)}/uploads`,
+      { files },
+    );
+  }
+
+  /**
+   * Commit a previously-started upload using the agent-collected
+   * ETag + PartNumber pairs from each S3 PUT response. Pass
+   * `completions` for multi-part files; single-part uploads need no
+   * completion.
+   */
+  async finalizeUpload(
+    siteId: string,
+    versionId: string,
+    completions?: UploadCompletion[],
+  ): Promise<FinalizeUploadResponse> {
+    const body = completions && completions.length > 0
+      ? { completions }
+      : undefined;
+    return this.http.post<FinalizeUploadResponse>(
+      `/v1/sites/${encodeURIComponent(siteId)}/uploads/${encodeURIComponent(versionId)}/finalize`,
+      body,
+    );
+  }
+
   async deploy(
     siteId: string,
     source: string | DeployFile[],
@@ -58,11 +94,7 @@ export class SitesResource {
       parts: Math.max(1, Math.ceil(f.content.length / PART_SIZE)),
     }));
 
-    const encodedSiteId = encodeURIComponent(siteId);
-    const upload = await this.http.post<StartUploadResponse>(
-      `/v1/sites/${encodedSiteId}/uploads`,
-      { files: manifest },
-    );
+    const upload = await this.startUpload(siteId, manifest);
 
     const completions: UploadCompletion[] = [];
 
@@ -117,14 +149,7 @@ export class SitesResource {
       completion.parts.sort((a, b) => a.PartNumber - b.PartNumber);
     }
 
-    const finalizeBody = completions.length > 0
-      ? { completions }
-      : undefined;
-
-    const finalize = await this.http.post<FinalizeUploadResponse>(
-      `/v1/sites/${encodedSiteId}/uploads/${encodeURIComponent(upload.versionId)}/finalize`,
-      finalizeBody,
-    );
+    const finalize = await this.finalizeUpload(siteId, upload.versionId, completions);
 
     return {
       versionId: upload.versionId,
