@@ -397,4 +397,93 @@ describe("SitesResource.deploy", () => {
       );
     });
   });
+
+  describe("partition-host URL shape", () => {
+    it("PUTs to partition-host URLs unchanged (no S3 hostname in deploy path)", async () => {
+      const http = createMockHttp();
+
+      const filesResponse = {
+        "file0.html": {
+          uploadId: "",
+          key: "uploads/orgA/s1/v1/file0.html",
+          partUploadUrls: [
+            {
+              part: 1,
+              url: "https://us.api.hostsmith.net/v1/uploads/uploads/orgA/s1/v1/file0.html?ut=eyJhbGciOiJIUzI1NiJ9.payload.sig",
+            },
+          ],
+        },
+      };
+      http.post
+        .mockResolvedValueOnce({ versionId: "v1", mode: "partition_host", files: filesResponse })
+        .mockResolvedValueOnce({ status: "DEPLOYED" });
+
+      const fetcher = vi.fn().mockResolvedValue({
+        ok: true,
+        headers: new Headers({ ETag: '"abc123"' }),
+      } as Partial<Response> as Response);
+      globalThis.fetch = fetcher;
+
+      const sites = new SitesResource(http);
+      await sites.deploy("s1", [{ fileName: "file0.html", content: Buffer.from("hi") }]);
+
+      // Single PUT, to the exact partition-host URL we were handed.
+      expect(fetcher).toHaveBeenCalledTimes(1);
+      const [calledUrl, init] = fetcher.mock.calls[0];
+      expect(calledUrl).toBe(
+        "https://us.api.hostsmith.net/v1/uploads/uploads/orgA/s1/v1/file0.html?ut=eyJhbGciOiJIUzI1NiJ9.payload.sig",
+      );
+      expect(init).toEqual(expect.objectContaining({ method: "PUT" }));
+      // SDK did not rewrite or strip the ut query parameter.
+      expect(String(calledUrl)).toContain("ut=");
+    });
+
+    it("captures ETag and finalizes correctly for partition-host multipart upload", async () => {
+      const http = createMockHttp();
+
+      const filesResponse = {
+        "big.bin": {
+          uploadId: "upl-xyz",
+          key: "uploads/orgA/s1/v1/big.bin",
+          partUploadUrls: [
+            {
+              part: 1,
+              url: "https://us.api.hostsmith.net/v1/uploads/uploads/orgA/s1/v1/big.bin?partNumber=1&uploadId=upl-xyz&ut=tok1",
+            },
+            {
+              part: 2,
+              url: "https://us.api.hostsmith.net/v1/uploads/uploads/orgA/s1/v1/big.bin?partNumber=2&uploadId=upl-xyz&ut=tok2",
+            },
+          ],
+        },
+      };
+      http.post
+        .mockResolvedValueOnce({ versionId: "v1", mode: "partition_host", files: filesResponse })
+        .mockResolvedValueOnce({ status: "DEPLOYED" });
+
+      let callCount = 0;
+      globalThis.fetch = vi.fn().mockImplementation(() => {
+        callCount++;
+        return Promise.resolve({
+          ok: true,
+          headers: new Headers({ ETag: `"etag-${callCount}"` }),
+        } as Partial<Response> as Response);
+      });
+
+      const PART_SIZE = 5 * 1024 * 1024;
+      const sites = new SitesResource(http);
+      await sites.deploy("s1", [{ fileName: "big.bin", content: Buffer.alloc(PART_SIZE + 1) }]);
+
+      const finalizeCall = http.post.mock.calls[1];
+      const body = finalizeCall[1] as { completions: Array<{ uploadId: string; key: string; parts: Array<{ ETag: string; PartNumber: number }> }> };
+      expect(body.completions[0].uploadId).toBe("upl-xyz");
+      expect(body.completions[0].key).toBe("uploads/orgA/s1/v1/big.bin");
+      expect(body.completions[0].parts).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ ETag: '"etag-1"', PartNumber: 1 }),
+          expect.objectContaining({ ETag: '"etag-2"', PartNumber: 2 }),
+        ]),
+      );
+    });
+  });
 });
