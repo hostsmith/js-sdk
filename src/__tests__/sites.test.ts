@@ -409,7 +409,7 @@ describe("SitesResource.deploy", () => {
           partUploadUrls: [
             {
               part: 1,
-              url: "https://us.api.hostsmith.net/v1/uploads/uploads/orgA/s1/v1/file0.html?ut=eyJhbGciOiJIUzI1NiJ9.payload.sig",
+              url: "https://us.api.hostsmith.net/v1/uploads/orgA/s1/v1/file0.html?ut=eyJhbGciOiJIUzI1NiJ9.payload.sig",
             },
           ],
         },
@@ -431,7 +431,7 @@ describe("SitesResource.deploy", () => {
       expect(fetcher).toHaveBeenCalledTimes(1);
       const [calledUrl, init] = fetcher.mock.calls[0];
       expect(calledUrl).toBe(
-        "https://us.api.hostsmith.net/v1/uploads/uploads/orgA/s1/v1/file0.html?ut=eyJhbGciOiJIUzI1NiJ9.payload.sig",
+        "https://us.api.hostsmith.net/v1/uploads/orgA/s1/v1/file0.html?ut=eyJhbGciOiJIUzI1NiJ9.payload.sig",
       );
       expect(init).toEqual(expect.objectContaining({ method: "PUT" }));
       // SDK did not rewrite or strip the ut query parameter.
@@ -448,11 +448,11 @@ describe("SitesResource.deploy", () => {
           partUploadUrls: [
             {
               part: 1,
-              url: "https://us.api.hostsmith.net/v1/uploads/uploads/orgA/s1/v1/big.bin?partNumber=1&uploadId=upl-xyz&ut=tok1",
+              url: "https://us.api.hostsmith.net/v1/uploads/orgA/s1/v1/big.bin?partNumber=1&uploadId=upl-xyz&ut=tok1",
             },
             {
               part: 2,
-              url: "https://us.api.hostsmith.net/v1/uploads/uploads/orgA/s1/v1/big.bin?partNumber=2&uploadId=upl-xyz&ut=tok2",
+              url: "https://us.api.hostsmith.net/v1/uploads/orgA/s1/v1/big.bin?partNumber=2&uploadId=upl-xyz&ut=tok2",
             },
           ],
         },

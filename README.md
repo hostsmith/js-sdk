@@ -103,9 +103,11 @@ const result = await client.sites.deploy("site-id", [
 ]);
 ```
 
-The deploy method handles the full upload flow: requesting presigned URLs, uploading file parts to S3 (with concurrency), and finalizing the deployment.
+The deploy method handles the full upload flow: requesting per-part upload URLs, PUTting each part (with concurrency), capturing ETags, and finalizing the deployment.
 
 Files larger than 5 MB are automatically split into multipart uploads.
+
+By default the public API returns **partition-host upload URLs** (on the same hostname as the rest of the API, e.g. `https://us.api.hostsmith.net/v1/uploads/...`) - so the SDK only needs network access to your partition's API host. If you prefer direct-to-S3 presigned URLs (e.g. for CI runners in the same AWS region), pass `mode: "presigned"` when starting the upload via the lower-level `client.sites.startUpload(...)` API. `deploy()` follows the server default and works with either URL shape transparently.
 
 ## Configuration
 
