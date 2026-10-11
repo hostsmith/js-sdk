@@ -20,6 +20,13 @@ export type HostsmithOptions = {
    * Inference from a token's `aud` claim uses these overridden URLs.
    */
   partitionUrls?: Partial<Record<Partition, string>>;
+  /**
+   * Your product token(s) for the `User-Agent` header, e.g.
+   * `"my-app/2.1.0"`. The SDK appends its own `hostsmith-js-sdk/<version>`
+   * token, so requests carry `User-Agent: my-app/2.1.0 hostsmith-js-sdk/<version>`.
+   * Without it, requests carry the SDK token alone.
+   */
+  userAgent?: string;
 };
 
 export interface Site {

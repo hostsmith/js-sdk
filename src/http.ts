@@ -1,13 +1,21 @@
 import { ApiError, AuthError, HostsmithError } from "./errors.js";
 import type { ApiErrorBody } from "./types.js";
+import { SDK_USER_AGENT } from "./version.js";
 
 export class HttpClient {
   private readonly baseUrl: string;
   private readonly accessToken: string;
+  private readonly userAgent: string;
 
-  constructor(baseUrl: string, accessToken: string) {
+  /**
+   * @param userAgent - caller's product token(s), sent before the SDK's own
+   *   `hostsmith-js-sdk/<version>` token in the `User-Agent` header.
+   */
+  constructor(baseUrl: string, accessToken: string, userAgent?: string) {
     this.baseUrl = baseUrl.replace(/\/+$/, "");
     this.accessToken = accessToken;
+    const prefix = userAgent?.trim();
+    this.userAgent = prefix ? `${prefix} ${SDK_USER_AGENT}` : SDK_USER_AGENT;
   }
 
   async request<T>(
@@ -19,6 +27,7 @@ export class HttpClient {
     const headers: Record<string, string> = {
       Authorization: `Bearer ${this.accessToken}`,
       Accept: "application/json",
+      "User-Agent": this.userAgent,
     };
 
     if (body !== undefined) {

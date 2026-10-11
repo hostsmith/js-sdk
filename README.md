@@ -163,6 +163,18 @@ const client = new Hostsmith({
 });
 ```
 
+### User-Agent
+
+Every request carries a `User-Agent` header with the SDK's product token, `hostsmith-js-sdk/<version>`. To identify your application, pass your own product token in `userAgent`; the SDK puts it first and appends its own:
+
+```ts
+const client = new Hostsmith({
+  accessToken: "your-token",
+  userAgent: "my-app/2.1.0",
+});
+// User-Agent: my-app/2.1.0 hostsmith-js-sdk/<version>
+```
+
 ## Error Handling
 
 The SDK throws typed errors for API failures:
