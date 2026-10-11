@@ -68,7 +68,7 @@ export class Hostsmith {
       baseUrl = partitionUrls[inferred];
     }
 
-    const http = new HttpClient(baseUrl, options.accessToken);
+    const http = new HttpClient(baseUrl, options.accessToken, options.userAgent);
 
     this.sites = new SitesResource(http);
     this.domains = new DomainsResource(http);

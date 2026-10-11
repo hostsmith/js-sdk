@@ -35,6 +35,13 @@ describe("Hostsmith client", () => {
     );
   });
 
+  it("passes the userAgent option through to requests", async () => {
+    const client = new Hostsmith({ accessToken: "tok", partition: "us", userAgent: "my-app/2.1.0" });
+    await client.sites.list();
+    const init = vi.mocked(globalThis.fetch).mock.calls[0][1] as RequestInit;
+    expect((init.headers as Record<string, string>)["User-Agent"]).toMatch(/^my-app\/2\.1\.0 hostsmith-js-sdk\/\S+$/);
+  });
+
   it("resolves eu partition to correct base URL", async () => {
     const client = new Hostsmith({ accessToken: "tok", partition: "eu" });
     await client.sites.list();

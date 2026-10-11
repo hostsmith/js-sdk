@@ -69,6 +69,32 @@ describe("HttpClient", () => {
     );
   });
 
+  function sentUserAgent(fetcher: ReturnType<typeof mockFetch>): string {
+    const init = fetcher.mock.calls[0][1] as RequestInit;
+    return (init.headers as Record<string, string>)["User-Agent"];
+  }
+
+  it("sends the SDK product token alone as User-Agent by default", async () => {
+    const fetcher = mockFetch();
+    const client = new HttpClient("https://api.example.com", "tok");
+    await client.get("/v1/sites");
+    expect(sentUserAgent(fetcher)).toMatch(/^hostsmith-js-sdk\/\S+$/);
+  });
+
+  it("puts the caller's product token before the SDK token", async () => {
+    const fetcher = mockFetch();
+    const client = new HttpClient("https://api.example.com", "tok", "hostsmith-mcp-server/1.6.0");
+    await client.post("/v1/sites", { subdomain: "a" });
+    expect(sentUserAgent(fetcher)).toMatch(/^hostsmith-mcp-server\/1\.6\.0 hostsmith-js-sdk\/\S+$/);
+  });
+
+  it("ignores a blank caller token", async () => {
+    const fetcher = mockFetch();
+    const client = new HttpClient("https://api.example.com", "tok", "  ");
+    await client.get("/v1/sites");
+    expect(sentUserAgent(fetcher)).toMatch(/^hostsmith-js-sdk\/\S+$/);
+  });
+
   it("returns parsed JSON on success", async () => {
     mockFetch({
       json: () => Promise.resolve({ sites: [] }),
