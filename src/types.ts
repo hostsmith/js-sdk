@@ -1,7 +1,23 @@
 export type Partition = "us" | "eu";
 
 export type HostsmithOptions = {
-  accessToken: string;
+  /**
+   * An OAuth 2.0 access token. Pass this or `apiToken`, not both.
+   */
+  accessToken?: string;
+  /**
+   * A Hostsmith API token (`hsat_...`), created by an organization owner in
+   * the dashboard. The client exchanges it for 1-hour access tokens and
+   * renews them as needed, so it suits CI and other long-running automation.
+   * The API token is sent only to the token endpoint. Pass this or
+   * `accessToken`, not both.
+   */
+  apiToken?: string;
+  /**
+   * The Hostsmith authorization server, where API tokens are exchanged.
+   * Defaults to `https://hostsmith.net`. Only needed for non-prod hosts.
+   */
+  authUrl?: string;
   /**
    * Data partition to talk to. Required unless `baseUrl` is provided or the
    * access token's `aud` claim is a single string identifying a known

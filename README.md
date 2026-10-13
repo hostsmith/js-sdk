@@ -35,12 +35,35 @@ await client.sites.deploy(sites[0].id, "./dist");
 
 ## Authentication
 
-The SDK requires an OAuth 2.0 access token. See the [authentication guide](https://hostsmith.net/docs/developers/authentication) for how to obtain one.
+The SDK takes either an OAuth 2.0 access token or a Hostsmith API token. See the [authentication guide](https://hostsmith.net/docs/developers/authentication) for how to obtain them.
 
 ```ts
 const client = new Hostsmith({
   accessToken: "your-access-token",
 });
+```
+
+### API tokens (CI and automation)
+
+An organization owner creates an API token in the Hostsmith dashboard (Developers → API Tokens). It can be limited to some sites and permissions, and it expires when the owner chooses. Pass it as `apiToken`: the client exchanges it for 1-hour access tokens and renews them as needed. The API token itself is sent only to the token endpoint.
+
+```ts
+const client = new Hostsmith({
+  apiToken: process.env.HOSTSMITH_TOKEN, // "hsat_..."
+  userAgent: "my-ci/1.0.0",
+});
+
+await client.sites.deploy(process.env.HOSTSMITH_SITE_ID!, "./dist");
+```
+
+Without `partition`, the client uses the home partition of the token's creator. Pass `partition` when the sites live in the other partition. A revoked or expired API token makes calls throw an `AuthError`.
+
+In a GitHub Action, store the token as a repository secret and pass it through the environment:
+
+```yaml
+- run: node deploy.mjs
+  env:
+    HOSTSMITH_TOKEN: ${{ secrets.HOSTSMITH_TOKEN }}
 ```
 
 ## Usage
