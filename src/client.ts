@@ -1,4 +1,5 @@
-import { HttpClient } from "./http.js";
+import { HttpClient, buildUserAgent } from "./http.js";
+import { API_TOKEN_PREFIX, ApiTokenSource, DEFAULT_AUTH_URL, type TokenSource } from "./tokens.js";
 import { SitesResource } from "./resources/sites.js";
 import { DomainsResource } from "./resources/domains.js";
 import { AccountResource } from "./resources/account.js";
@@ -45,7 +46,26 @@ export class Hostsmith {
       ...options.partitionUrls,
     };
 
-    let baseUrl: string;
+    if (options.accessToken && options.apiToken) {
+      throw new Error("Pass either `accessToken` or `apiToken` to the Hostsmith client, not both.");
+    }
+    if (!options.accessToken && !options.apiToken) {
+      throw new Error("Hostsmith client requires `accessToken` or `apiToken`.");
+    }
+    if (options.apiToken !== undefined && !options.apiToken.startsWith(API_TOKEN_PREFIX)) {
+      throw new Error(`\`apiToken\` must be a Hostsmith API token, starting with "${API_TOKEN_PREFIX}".`);
+    }
+
+    const tokens: string | TokenSource = options.apiToken
+      ? new ApiTokenSource(options.apiToken, (options.authUrl ?? DEFAULT_AUTH_URL).replace(/\/+$/, ""), buildUserAgent(options.userAgent))
+      : options.accessToken!;
+
+    const missingPartition =
+      "Hostsmith client requires `partition` (\"us\" | \"eu\") or `baseUrl`. " +
+      "The access token does not carry a `homePartition` claim, " +
+      "so the partition cannot be inferred automatically.";
+
+    let baseUrl: string | (() => Promise<string>);
     if (options.baseUrl) {
       baseUrl = options.baseUrl;
     } else if (options.partition) {
@@ -56,19 +76,23 @@ export class Hostsmith {
         );
       }
       baseUrl = url;
-    } else {
-      const inferred = partitionFromToken(options.accessToken);
+    } else if (typeof tokens === "string") {
+      const inferred = partitionFromToken(tokens);
       if (!inferred) {
-        throw new Error(
-          "Hostsmith client requires `partition` (\"us\" | \"eu\") or `baseUrl`. " +
-            "The supplied access token does not carry a `homePartition` claim, " +
-            "so the partition cannot be inferred automatically.",
-        );
+        throw new Error(missingPartition);
       }
       baseUrl = partitionUrls[inferred];
+    } else {
+      // With an API token, the first exchanged access token names the partition.
+      const source = tokens;
+      baseUrl = async () => {
+        const inferred = partitionFromToken(await source.getToken());
+        if (!inferred) throw new Error(missingPartition);
+        return partitionUrls[inferred];
+      };
     }
 
-    const http = new HttpClient(baseUrl, options.accessToken, options.userAgent);
+    const http = new HttpClient(baseUrl, tokens, options.userAgent);
 
     this.sites = new SitesResource(http);
     this.domains = new DomainsResource(http);
