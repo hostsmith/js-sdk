@@ -8,12 +8,19 @@ export class HostsmithError extends Error {
 export class ApiError extends HostsmithError {
   readonly status: number;
   readonly errorCode: string;
+  /**
+   * The error body's fields besides `error` and `message`, such as the
+   * `errors` of an `InvalidRules` refusal or the latest `version` of a
+   * `StaleVersion` one. Undefined when the body has none.
+   */
+  readonly details: Record<string, unknown> | undefined;
 
-  constructor(status: number, errorCode: string, message: string) {
+  constructor(status: number, errorCode: string, message: string, details?: Record<string, unknown>) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.errorCode = errorCode;
+    this.details = details;
   }
 }
 

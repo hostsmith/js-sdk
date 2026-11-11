@@ -3,6 +3,13 @@ import { StaticTokenSource, type TokenSource } from "./tokens.js";
 import type { ApiErrorBody } from "./types.js";
 import { SDK_USER_AGENT } from "./version.js";
 
+/** An error body's fields besides `error` and `message`, or undefined when it has none. */
+function errorDetails(body: ApiErrorBody | undefined): Record<string, unknown> | undefined {
+  if (typeof body !== "object" || body === null) return undefined;
+  const { error: _error, message: _message, ...details } = body as unknown as Record<string, unknown>;
+  return Object.keys(details).length > 0 ? details : undefined;
+}
+
 /** The `User-Agent` value: the caller's product token(s), then the SDK's own. */
 export function buildUserAgent(userAgent?: string): string {
   const prefix = userAgent?.trim();
@@ -43,12 +50,13 @@ export class HttpClient {
     method: string,
     path: string,
     body?: unknown,
+    headers?: Record<string, string>,
   ): Promise<T> {
     const url = `${await this.getBaseUrl()}${path}`;
-    let response = await this.send(method, url, await this.tokens.getToken(), body);
+    let response = await this.send(method, url, await this.tokens.getToken(), body, headers);
     // A renewable token gets one more try with a fresh access token.
     if (response.status === 401 && this.tokens.invalidate()) {
-      response = await this.send(method, url, await this.tokens.getToken(), body);
+      response = await this.send(method, url, await this.tokens.getToken(), body, headers);
     }
 
     if (!response.ok) {
@@ -66,14 +74,23 @@ export class HttpClient {
       if (response.status === 401) {
         throw new AuthError(errorCode, message);
       }
-      throw new ApiError(response.status, errorCode, message);
+      throw new ApiError(response.status, errorCode, message, errorDetails(errorBody));
     }
 
+    // 204 No Content has no body to parse.
+    if (response.status === 204) return undefined as T;
     return (await response.json()) as T;
   }
 
-  private async send(method: string, url: string, token: string, body?: unknown): Promise<Response> {
+  private async send(
+    method: string,
+    url: string,
+    token: string,
+    body?: unknown,
+    extraHeaders?: Record<string, string>,
+  ): Promise<Response> {
     const headers: Record<string, string> = {
+      ...extraHeaders,
       Authorization: `Bearer ${token}`,
       Accept: "application/json",
       "User-Agent": this.userAgent,
@@ -100,6 +117,14 @@ export class HttpClient {
 
   post<T>(path: string, body?: unknown): Promise<T> {
     return this.request<T>("POST", path, body);
+  }
+
+  put<T>(path: string, body?: unknown, headers?: Record<string, string>): Promise<T> {
+    return this.request<T>("PUT", path, body, headers);
+  }
+
+  patch<T>(path: string, body?: unknown, headers?: Record<string, string>): Promise<T> {
+    return this.request<T>("PATCH", path, body, headers);
   }
 
   delete<T>(path: string): Promise<T> {

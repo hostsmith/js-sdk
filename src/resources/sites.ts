@@ -2,6 +2,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { join, relative, posix } from "node:path";
 import { HostsmithError } from "../errors.js";
 import type { HttpClient } from "../http.js";
+import { RedirectsResource } from "./redirects.js";
 import type {
   DeployFile,
   DeployResult,
@@ -20,7 +21,12 @@ const PART_SIZE = 5 * 1024 * 1024; // 5 MB
 const MAX_CONCURRENCY = 5;
 
 export class SitesResource {
-  constructor(private readonly http: HttpClient) {}
+  /** A site's redirect rules. */
+  readonly redirects: RedirectsResource;
+
+  constructor(private readonly http: HttpClient) {
+    this.redirects = new RedirectsResource(http);
+  }
 
   async list(): Promise<SiteListResponse> {
     return this.http.get<SiteListResponse>("/v1/sites");
