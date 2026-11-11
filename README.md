@@ -132,6 +132,46 @@ Files larger than 5 MB are automatically split into multipart uploads.
 
 By default the public API returns **partition-host upload URLs** (on the same hostname as the rest of the API, e.g. `https://us.api.hostsmith.net/v1/uploads/...`) - so the SDK only needs network access to your partition's API host. If you prefer direct-to-S3 presigned URLs (e.g. for CI runners in the same AWS region), pass `mode: "presigned"` when starting the upload via the lower-level `client.sites.startUpload(...)` API. `deploy()` follows the server default and works with either URL shape transparently.
 
+### Redirects
+
+A site's hostname has two sources of redirect rules, checked in order: **user rules**, kept on the hostname and changed through the API without a deploy, then **file rules**, from the live deploy's `_redirects`. The first match answers. Redirects apply only on your organization's own custom domains; a change to a site on a shared domain is refused with `CustomDomainRequired`. Rules default to 301.
+
+```ts
+// Read the rules in the order they are checked, with the file's report
+const { version, rules, file } = await client.sites.redirects.list("site-id");
+
+// Add one rule, or delete one by id
+const { rule } = await client.sites.redirects.add("site-id", { from: "/old", to: "/new" });
+await client.sites.redirects.delete("site-id", rule.id);
+
+// Check a path before or after a change
+const { match } = await client.sites.redirects.test("site-id", { path: "/old?ref=mail" });
+// { managedBy: "user", id: "r_...", status: 301, location: "/new?ref=mail" }
+
+// Switch the live deploy's file rules off until the next deploy, or back on
+await client.sites.redirects.setFileRules("site-id", false);
+```
+
+For bulk work, replace the list or send a batch, rather than many single calls. Both are all or nothing. Pass the `version` you read to refuse the change if someone saved since:
+
+```ts
+// Replace the whole list, from rules or from `_redirects` text
+await client.sites.redirects.set("site-id", { text: "/blog/* /posts/:splat\n/promo /sale 302\n" }, { version });
+
+// Apply adds, updates and deletes in order
+await client.sites.redirects.edit(
+  "site-id",
+  [
+    { op: "add", rule: { from: "/a", to: "/b" }, position: 0 },
+    { op: "update", id: "r_8f2a91c04b7e", rule: { from: "/c", to: "/d", status: 308 } },
+    { op: "delete", id: "r_3bedf35348fa" },
+  ],
+  { version },
+);
+```
+
+A refusal's details are on `err.details`, such as the `errors` of `InvalidRules`, each with the rule's `index` or the text's `line`, and the latest `version` of `StaleVersion`. A file rule can't be changed through these calls: naming its line answers `FileRule` with the `line`.
+
 ## Configuration
 
 ### Partitions
@@ -221,7 +261,7 @@ try {
 ### Error Classes
 
 - `HostsmithError` - base class for all SDK errors
-- `ApiError` - API returned an error response (has `status`, `errorCode`, `message`)
+- `ApiError` - API returned an error response (has `status`, `errorCode`, `message`, and `details` with the body's other fields)
 - `AuthError` - 401 Unauthorized (extends `ApiError`)
 
 ## Contributing

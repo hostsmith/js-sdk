@@ -69,6 +69,28 @@ describe("HttpClient", () => {
     );
   });
 
+  it("calls fetch with PUT and PATCH, the body and extra headers", async () => {
+    const fetcher = mockFetch();
+    const client = new HttpClient("https://api.example.com", "tok");
+    await client.put("/v1/things", { a: 1 }, { "If-Match": '"4"' });
+    await client.patch("/v1/things", { b: 2 });
+    const put = fetcher.mock.calls[0][1] as RequestInit;
+    const patch = fetcher.mock.calls[1][1] as RequestInit;
+    expect(put).toMatchObject({ method: "PUT", body: JSON.stringify({ a: 1 }) });
+    expect((put.headers as Record<string, string>)["If-Match"]).toBe('"4"');
+    expect((put.headers as Record<string, string>).Authorization).toBe("Bearer tok");
+    expect(patch).toMatchObject({ method: "PATCH", body: JSON.stringify({ b: 2 }) });
+    expect((patch.headers as Record<string, string>)["If-Match"]).toBeUndefined();
+  });
+
+  it("returns undefined on 204 without reading a body", async () => {
+    const json = vi.fn(() => Promise.reject(new Error("no body")));
+    mockFetch({ status: 204, statusText: "No Content", json });
+    const client = new HttpClient("https://api.example.com", "tok");
+    await expect(client.delete("/v1/things/1")).resolves.toBeUndefined();
+    expect(json).not.toHaveBeenCalled();
+  });
+
   function sentUserAgent(fetcher: ReturnType<typeof mockFetch>): string {
     const init = fetcher.mock.calls[0][1] as RequestInit;
     return (init.headers as Record<string, string>)["User-Agent"];
@@ -140,7 +162,24 @@ describe("HttpClient", () => {
       const apiErr = err as ApiError;
       expect(apiErr.status).toBe(404);
       expect(apiErr.errorCode).toBe("not_found");
+      expect(apiErr.details).toBeUndefined();
     }
+  });
+
+  it("keeps the error body's other fields as details", async () => {
+    mockFetch({
+      ok: false,
+      status: 409,
+      statusText: "Conflict",
+      json: () =>
+        Promise.resolve({ error: "FileRule", message: "Line 3 is a file rule", managedBy: "file", line: 3, index: 1 }),
+    });
+    const client = new HttpClient("https://api.example.com", "tok");
+    const err = (await client.patch("/v1/sites/s1/redirects", {}).catch((e) => e)) as ApiError;
+    expect(err).toBeInstanceOf(ApiError);
+    expect(err.errorCode).toBe("FileRule");
+    expect(err.message).toBe("Line 3 is a file rule");
+    expect(err.details).toEqual({ managedBy: "file", line: 3, index: 1 });
   });
 
   it("throws HostsmithError on network failure", async () => {

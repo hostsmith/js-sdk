@@ -116,6 +116,156 @@ export interface DeployResult {
   status: string;
 }
 
+/**
+ * `user`: kept on the hostname and edited through the API, the dashboard or
+ * MCP, checked first. `file`: from the live deploy's `_redirects`, changed
+ * only by a deploy.
+ */
+export type RedirectManagedBy = "user" | "file";
+
+export interface RedirectRule {
+  managedBy: RedirectManagedBy;
+  /** User rules: the rule's id. */
+  id?: string;
+  /** File rules: the line in `_redirects`, from 1. */
+  line?: number;
+  /** Source path: exact, with `:name` placeholders, or ending in `/*`. */
+  from: string;
+  /** Destination path or http(s) URL, with `:splat` and `:name` filled in. */
+  to: string;
+  /** 301, 302, 303, 307 or 308. */
+  status: number;
+  /** File rules: the id of the exact user rule for the same path, which answers first. */
+  shadowedBy?: string;
+}
+
+/** A rule the API refused or a deploy skipped, and why. */
+export interface RedirectError {
+  /** Line in `_redirects` text, from 1. */
+  line?: number;
+  /** Position in a list of rules or a batch of operations, from 0. */
+  index?: number;
+  /** The part of the rule that is wrong. */
+  field?: "from" | "to" | "status" | "rule";
+  /** Stable error code, such as `UNSUPPORTED_STATUS`. */
+  code: string;
+  /** What is wrong, and how to fix it. */
+  message: string;
+}
+
+/** The live deploy's `_redirects`. */
+export interface RedirectFileReport {
+  deployId: string;
+  /** Rules the file gave. */
+  applied: number;
+  /** Lines skipped as invalid. */
+  skippedCount: number;
+  /** The first 1,000 skipped lines, with the reason. */
+  skipped: RedirectError[];
+  /** False while the file rules are switched off. */
+  enabled: boolean;
+  /** Why none of the file's rules apply: redirects work only on the org's own custom domains. */
+  notApplied?: "CUSTOM_DOMAIN_REQUIRED";
+}
+
+export interface RedirectLimits {
+  /** Size cap of the file and of the user rules, each. */
+  maxBytes: number;
+  /** Rules per source. */
+  maxRules: number;
+  /** Rules with a `*` or a placeholder, per source, within `maxRules`. */
+  maxPatterns: number;
+  /** Characters per rule. */
+  maxRuleLength: number;
+}
+
+/** A site's redirect rules, in the order they are checked. */
+export interface RedirectListResponse {
+  /** The user rules' version, 0 before the first save. Pass it to a write to refuse it if the rules changed since. */
+  version: number;
+  /** All rules of both sources. Read past the first page with `offset`. */
+  total: number;
+  /** The position of the first rule returned, from 0. */
+  offset: number;
+  /** One page of the rules, at most 1,000: user rules, then file rules. */
+  rules: RedirectRule[];
+  /** The live deploy's `_redirects`, or null when it has none. */
+  file: RedirectFileReport | null;
+  limits: RedirectLimits;
+}
+
+export interface RedirectListParams {
+  /** Position of the first rule to return, from 0. */
+  offset?: number;
+  /** Rules to return, at most and by default 1,000. */
+  limit?: number;
+}
+
+export interface RedirectRuleInput {
+  from: string;
+  to: string;
+  /** 301, 302, 303, 307 or 308. Defaults to 301. */
+  status?: number;
+}
+
+/** A rule of a new list. A rule sent with an id the list has keeps it. */
+export interface RedirectRuleWithId extends RedirectRuleInput {
+  id?: string;
+}
+
+/** The new list of user rules, as rules or as `_redirects` text. */
+export type RedirectSetParams = { rules: RedirectRuleWithId[] } | { text: string };
+
+export interface RedirectWriteOptions {
+  /** The version the rules were read at. The write is refused with 412 `StaleVersion` if another change was saved since. */
+  version?: number;
+}
+
+export type RedirectOperation =
+  | { op: "add"; rule: RedirectRuleInput; /** Where to add the rule, from 0. Defaults to the end. */ position?: number }
+  | { op: "update"; id: string; rule: RedirectRuleInput }
+  | { op: "delete"; id: string };
+
+export interface RedirectAddParams extends RedirectRuleInput {
+  /** Where to add the rule, from 0. Defaults to the end. */
+  position?: number;
+}
+
+export interface RedirectAddResponse {
+  rule: { id: string; from: string; to: string; status: number };
+  /** The new version. */
+  version: number;
+}
+
+export interface RedirectTestParams {
+  /** The path, with an optional query string. */
+  path: string;
+  /** `_redirects` text tested in place of the live deploy's file. */
+  draftText?: string;
+  /** User rules tested in place of the saved ones. */
+  draftRules?: RedirectRuleWithId[];
+}
+
+export interface RedirectMatch {
+  managedBy: RedirectManagedBy;
+  /** User rules: the rule's id, when it has one. */
+  id?: string;
+  /** File rules: the line in `_redirects`. */
+  line?: number;
+  status: number;
+  /** The `Location` the visitor is sent to, with the query string carried over. */
+  location: string;
+}
+
+export interface RedirectTestResponse {
+  /** The rule that answers, or null when the path is served as is. */
+  match: RedirectMatch | null;
+  /** The drafts' first 1,000 errors: by `index` for draft rules, by `line` for a draft file. */
+  errors: RedirectError[];
+  /** All the drafts' errors. */
+  errorCount: number;
+}
+
 export interface Domain {
   id: string;
   name: string;
