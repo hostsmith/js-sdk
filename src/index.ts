@@ -6,6 +6,7 @@ export type {
   PartitionInfo,
   PartitionListResponse,
   Site,
+  SiteKind,
   SiteListResponse,
   SiteCreateParams,
   SiteCreateResponse,
