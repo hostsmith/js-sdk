@@ -51,6 +51,18 @@ describe("SitesResource", () => {
     expect(http.post).toHaveBeenCalledWith("/v1/sites", params);
   });
 
+  it("create() sends the kind of a redirect host", async () => {
+    const http = createMockHttp();
+    http.post.mockResolvedValue({ siteId: "new-id" });
+    const sites = new SitesResource(http);
+    await sites.create({ subdomain: "go", domain: "example.com", kind: "redirect" });
+    expect(http.post).toHaveBeenCalledWith("/v1/sites", {
+      subdomain: "go",
+      domain: "example.com",
+      kind: "redirect",
+    });
+  });
+
   it("delete() calls DELETE /v1/sites/<encoded id>", async () => {
     const http = createMockHttp();
     http.delete.mockResolvedValue({ status: "DELETING" });

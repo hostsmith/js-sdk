@@ -45,12 +45,20 @@ export type HostsmithOptions = {
   userAgent?: string;
 };
 
+/**
+ * `"site"` serves files and redirect rules. `"redirect"` is a redirect host:
+ * it serves only redirect rules, on one of the organization's own custom
+ * domains, and takes no uploads. Fixed at creation.
+ */
+export type SiteKind = "site" | "redirect";
+
 export interface Site {
   id: string;
   subdomain: string;
   domain: string;
   /** Data residency / partition the site lives in. */
   partition?: Partition;
+  kind?: SiteKind;
   siteStatus?: string;
   deployId?: string;
   storageUsed?: number;
@@ -64,6 +72,13 @@ export interface SiteListResponse {
 export interface SiteCreateParams {
   subdomain?: string;
   domain: string;
+  /**
+   * Defaults to `"site"`. `"redirect"` creates a redirect host, refused with
+   * 409 `CustomDomainRequired` on a shared domain. Redirect hosts don't count
+   * toward the plan's site limit; past 50 per organization the create is
+   * refused with 403 `RedirectHostLimitReached`.
+   */
+  kind?: SiteKind;
 }
 
 export interface SiteCreateResponse {

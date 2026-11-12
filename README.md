@@ -83,9 +83,18 @@ const { siteId } = await client.sites.create({
   domain: "us.hostsmith.link",
 });
 
+// Create a redirect host on one of your custom domains
+const { siteId: hostId } = await client.sites.create({
+  subdomain: "go",
+  domain: "example.com",
+  kind: "redirect",
+});
+
 // Delete a site
 await client.sites.delete("site-id");
 ```
+
+A redirect host (`kind: "redirect"`) serves only its [redirect rules](#redirects), set with `client.sites.redirects` as for a site. It takes no files: `deploy()` and `startUpload()` are refused with `RedirectHostHasNoFiles`. It needs one of your organization's own custom domains, so a shared domain is refused with `CustomDomainRequired`. Redirect hosts don't count toward the plan's site limit; an organization can have up to 50, and the next create is refused with `RedirectHostLimitReached`. Every site has a `kind`, `"site"` or `"redirect"`.
 
 ### Domains
 
